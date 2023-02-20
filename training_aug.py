@@ -23,9 +23,10 @@ from tensorflow.keras.initializers import random_uniform, glorot_uniform, consta
 import datetime     
 import pickle
 #from tensorflow.keras.optimizers import Adam
-#from keras.optimizers import adam
 from tensorflow import keras
 
+#function to build the ground truth labels for model training
+#the input is the json file obtained from the TuSimple dataset containing lane coordinates
 def build_output(json, zastavica):
 
     path_to_img = []
@@ -92,7 +93,8 @@ def connect_list(liste):
 
     return lista
 
-
+#function to preprocess the images and build the image dataset
+#path_to_img used from the json file in the TuSimple dataset
 def build_image_dataset(path_to_img):
 
     dataset_images = []
@@ -113,10 +115,11 @@ def scale_coordinates(output, mask):
     for i in range(len(output)):
         output[i] = output[i] * mask
 
-
+#custom loss function used for model training
 def custom_loss(y_true, y_pred):
     return tf.reduce_sum(tf.abs(tf.subtract(y_true, y_pred)))
 
+#create ordered pairs of coordinates of lane points
 def create_lane_points(output):
     
     lane_points = []
@@ -130,6 +133,7 @@ def create_lane_points(output):
         lane_points.append(lane_points2)
     return lane_points
 
+#function to rotate images for expanding the dataset
 def rotate_image(image_list, angle): 
     rotated_images = []
     
@@ -144,6 +148,7 @@ def rotate_image(image_list, angle):
         
     return rotated_images
 
+#function to rotate the corresponding lane coordinates
 def rotate_points(points, angle):
     new_points = []
     M = cv2.getRotationMatrix2D(((256-1)/2.0,(480-1)/2.0),angle,1) 
@@ -155,6 +160,7 @@ def rotate_points(points, angle):
     return new_points
 
 
+#defining the arhitecture of the pretrained model
 input_shape = (256, 480, 3)
 
 input_img = tf.keras.Input(shape=input_shape)
@@ -185,7 +191,7 @@ branch_4 = Dense(96, activation = 'linear')(branch_4)
 
 model = Model(inputs=input_img, outputs=[branch_1, branch_2, branch_3, branch_4])
 
-
+#defining the arhitecture of the custom model
 def model_aug(input_shape):
 
     input_img = tf.keras.Input(shape=input_shape)
@@ -327,6 +333,8 @@ json_gt3 = [json.loads(line) for line in open('label_data_0601.json')]
     cnt_3,
 ) = build_output(json_gt3, 0)
 
+#build image dataset, output points, and rotate images
+
 path_to_img = connect_list([path_to_img_1, path_to_img_2, path_to_img_3])
 output_1 = connect_list([output_1_1, output_1_2, output_1_3])
 output_2 = connect_list([output_2_1, output_2_2, output_2_3])
@@ -388,18 +396,11 @@ print(output_2.shape)
 print(output_3.shape)
 print(output_4.shape)
 
-del train_dataset_lista
-del lane_points_1
-del lane_points_2
-del lane_points_3
-del lane_points_4
-del lane_points_1_a
-del lane_points_2_a
-del lane_points_3_a
-del lane_points_4_a
 
 
 print("Stvaram model")
+
+#compiling the model
 
 model.compile(optimizer=keras.optimizers.Adam(), loss=custom_loss, metrics=["accuracy"])
 
@@ -408,12 +409,14 @@ output_2 = tf.cast(output_2, tf.float32)
 output_3 = tf.cast(output_3, tf.float32)
 output_4 = tf.cast(output_4, tf.float32)
 
+#defining TensorBoard
 log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir)
 
 
 print("Trening!")
 
+#training the model
 history = model.fit(
     x=train_dataset,
     y=[output_1, output_2, output_3, output_4],
@@ -428,24 +431,8 @@ history = model.fit(
 
 print("Gotov trening!")
 
-#core.trainable = True
 
-#for layer in core.layers[:55]:
-#    layer.trainable = False
-
-#model.compile(optimizer=keras.optimizers.Adam(1e-5), loss=custom_loss, metrics=["accuracy"])
-
-#history_fine = model.fit(
-#        x = train_dataset,
-#        y = [output_1, output_2, output_3, output_4],
-#        epochs = 140,
-#        initial_epoch = history.epoch[-1],
-#        callbacks=[tensorboard_callback],
-#        validation_split=0.15,
-#        shuffle=True)
-
-
-del train_dataset
+#Save the training history
 
 with open("trainHistoryDict130_augmentation_pretrain_model.pkl", "wb") as file:
     pickle.dump(history.history, file)
@@ -453,6 +440,7 @@ with open("trainHistoryDict130_augmentation_pretrain_model.pkl", "wb") as file:
 print("Spremio history")
 
 
+#Save the trained model weights
 
 model.save_weights("pre_model170_aug_ckpt")
 load_status = model.load_weights("pre_model170_aug_ckpt")
