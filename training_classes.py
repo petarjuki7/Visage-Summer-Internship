@@ -27,6 +27,9 @@ import pickle
 import cv2 as cv
 from tensorflow import keras
 
+
+#function to build the ground truth labels for model training
+#the input is the json file obtained from the TuSimple dataset containing lane coordinates
 def build_output(json, zastavica):
     
     path_to_img = []
@@ -112,6 +115,8 @@ def connect_list(liste):
     
     return lista
 
+#function to preprocess the images and build the image dataset
+#path_to_img used from the json file in the TuSimple dataset
 def build_image_dataset(path_to_img):
     
     dataset_images = []
@@ -196,6 +201,7 @@ lane_points_4 = create_lane_points(output_4)
 
 print(train_dataset.shape)
 
+#Crop each of the lanes and add them to the dataset for training
 lane_dataset = []
 lane_dataset_classes = []
 
@@ -244,6 +250,7 @@ print(lane_dataset.shape)
 print(lane_dataset_classes.shape)
 
 
+#Model arhitecture definition
 input_shape = (153,153,3)
 
 input_img = tf.keras.Input(shape=input_shape)
@@ -276,7 +283,7 @@ log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir)
 
 
-
+#Training the model
 history = model.fit(
     x=lane_dataset,
     y=lane_dataset_classes,
@@ -286,6 +293,8 @@ history = model.fit(
 #    validation_split=0.15,
     shuffle=True
 )
+
+#Saving the model history and weights
 
 with open("trainHistoryDict_classes_all_42.pkl", "wb") as file:
     pickle.dump(history.history, file)
